@@ -5,31 +5,133 @@ package quotes_Java;
 
 import com.google.gson.Gson;
 
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.Reader;
+import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
 
 public class App {
-    public static void main(String[] args) throws IOException {
-        Gson gson = new Gson();
+    public static void main(String[] args) {
+
         Path path = Paths.get("app/src/main/resources/recentquotes.json"); // for run from the IDE
 //        Path path = Paths.get("../app/src/main/resources/recentquotes.json"); // for run from the CLI ' ./gradlew run '
 
-        try (Reader reader = new FileReader(path.toString())) {
+        String quotesURL = "http://api.forismatic.com/api/1.0/?method=getQuote&format=json&lang=en";
+        HttpURLConnection conn = null;
+        try {
+            conn = createAConnection(quotesURL);
+            QuoteFromAPI newQuote =printRandomQuoteFromAPI(conn);
+            List<RecentQuotes> listOfQuotes = getRecentQuotesAfterAddedTheLastQuote(path, newQuote);
+            String outputJson = convertTheListToJSON(listOfQuotes);
+            writeAllQuotesToTheFile(path, outputJson);
 
-            RecentQuotes[] recentQuotes = gson.fromJson(reader, RecentQuotes[].class);
-            Random random = new Random();
-            int index = random.nextInt(recentQuotes.length);
+        } catch (IOException e) {
+            System.out.println("There is error with connection to the API URL .. " + e.getMessage());
+            printRandomQuoteFromTheFile(path);
 
-            System.out.println(recentQuotes[index]);
         }
-        catch (IOException ex) {
+
+    }
+
+    private static void writeAllQuotesToTheFile(Path path, String outputJson) throws IOException {
+        FileWriter fw = new FileWriter(path.toString());
+        BufferedWriter bw = new BufferedWriter(fw);
+        bw.write(outputJson);
+        bw.flush();
+        bw.close();
+    }
+
+    private static String convertTheListToJSON(List<RecentQuotes> listOfQuotes) {
+        Gson gson = new Gson();
+        String output = gson.toJson(listOfQuotes);
+        return output;
+    }
+
+    private static List<RecentQuotes> getRecentQuotesAfterAddedTheLastQuote(Path path, QuoteFromAPI newQuote) {
+        RecentQuotes[] allQuotes =getAllQuotesFromFileAsRecentQuotesArray(path);
+        List<RecentQuotes> listOfQuotes = new ArrayList<>(Arrays.asList(allQuotes));
+        RecentQuotes quoteToAdd = new RecentQuotes();
+        quoteToAdd.author = newQuote.quoteAuthor;
+        quoteToAdd.text = newQuote.quoteText;
+        quoteToAdd.likes = "0";
+        quoteToAdd.tags = new ArrayList<String>();
+        listOfQuotes.add(quoteToAdd);
+        return listOfQuotes;
+    }
+
+    static QuoteFromAPI printRandomQuoteFromAPI(HttpURLConnection conn) throws IOException {
+        BufferedReader reader = readJsonFromTheAPI(conn);
+        QuoteFromAPI newQuote = convertFromJsonTo_QuoteFromAPI(reader);
+        System.out.println(newQuote);
+        conn.disconnect();
+        reader.close();
+        return newQuote;
+    }
+
+     static QuoteFromAPI convertFromJsonTo_QuoteFromAPI(BufferedReader reader) throws IOException {
+        String quote = reader.readLine();
+        Gson gson = new Gson();
+        QuoteFromAPI newQuote = gson.fromJson(quote, QuoteFromAPI.class);
+        return newQuote;
+    }
+
+     static BufferedReader readJsonFromTheAPI(HttpURLConnection conn) throws IOException {
+        InputStreamReader in = new InputStreamReader(conn.getInputStream());
+        BufferedReader reader = new BufferedReader(in);
+        return reader;
+    }
+
+
+    static boolean isConnectionEstablishedSuccessfully(int statusCode) {
+        if (statusCode >= 200 && statusCode < 400) {
+            return true;
+        }
+        return false;
+    }
+
+    static HttpURLConnection createAConnection(String quotesURL) throws IOException {
+        URL url = new URL(quotesURL);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+        return conn;
+    }
+
+    private static Reader readTheFile(Path path) {
+        try {
+            Reader reader = new FileReader(path.toString());
+            return reader;
+        } catch (IOException ex) {
             System.out.println("file not found ... " + ex.getMessage());
+            return null;
         }
+    }
 
+    private static RecentQuotes[] convertFileFromJsonToArrayOfRecentQuotes(Path path) {
+        Gson gson = new Gson();
+        Reader reader = readTheFile(path);
+        RecentQuotes[] recentQuotes = gson.fromJson(reader, RecentQuotes[].class);
+        try {
+            reader.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return recentQuotes;
+    }
 
+    private static RecentQuotes[] getAllQuotesFromFileAsRecentQuotesArray(Path path) {
+        RecentQuotes[] recentQuotes = convertFileFromJsonToArrayOfRecentQuotes(path);
+        return recentQuotes;
+    }
+
+    private static void printRandomQuoteFromTheFile(Path path) {
+        RecentQuotes[] recentQuotes = getAllQuotesFromFileAsRecentQuotesArray(path);
+        Random random = new Random();
+        int index = random.nextInt(recentQuotes.length);
+        System.out.println(recentQuotes[index]);
     }
 }

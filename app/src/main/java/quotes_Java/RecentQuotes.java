@@ -4,10 +4,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class RecentQuotes {
-//    private List<String> tags = new ArrayList<String>();
-    private String author;
-//    private String likes;
-    private String text;
+     List<String> tags = new ArrayList<String>();
+     String author;
+     String likes;
+     String text;
 
 
 
