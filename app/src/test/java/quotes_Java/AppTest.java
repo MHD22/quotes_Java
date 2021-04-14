@@ -9,6 +9,7 @@ import org.junit.Test;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
+import java.net.HttpURLConnection;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Random;
@@ -33,6 +34,21 @@ public class AppTest {
             assertTrue(false);
         }
     }
+    @Test public void testGetQuoteFromAPI(){
+        String quotesURL = "http://api.forismatic.com/api/1.0/?method=getQuote&format=json&lang=en";
+        HttpURLConnection conn = null;
+        try {
+            conn = App.createAConnection(quotesURL);
+            String quote = App.printRandomQuoteFromAPI(conn).toString();
+            assertNotEquals(quote,null);
+        } catch (IOException e) {
+            System.out.println("There is error with connection to the API URL .. " + e.getMessage());
+            assertTrue(false);
+        }
+
+    }
+
+
 
 
 
